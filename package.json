@@ -1,0 +1,26 @@
+{
+  "name": "server-serve",
+  "version": "1.1.0",
+  "description": "to structurize your backend",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hi345543/server-serve.git"
+  },
+  "keywords": [
+    "npm",
+    "backend"
+  ],
+  "author": "deelk",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/hi345543/server-serve/issues"
+  },
+  "homepage": "https://github.com/hi345543/server-serve#readme",
+  "dependencies": {
+    "express": "^4.17.1"
+  }
+}

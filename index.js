@@ -1,6 +1,10 @@
+const fs = require('fs');
+
 module.exports = {
     express: undefined,
     app: undefined,
+
+    root: (require("app-root-path") + "").replace(/\\/g, "/"),
 
     paths: {
         configs:{
@@ -16,8 +20,8 @@ module.exports = {
     },
 
     server:{
-        http,
-        https
+        http: undefined,
+        https: undefined
     },
 
     configs:{
@@ -42,6 +46,8 @@ module.exports = {
 
     build: function(options) { 
         return new Promise((resolve, reject) => {
+            checkStructure();
+
             //require express or get it from the options object
             if(options && options.express && options.app){
                 this.express = options.express;
@@ -57,16 +63,64 @@ module.exports = {
             }
 
             //require all config files
-            this.configs.routes = require(paths.configs.routes);
-            this.configs.middlewares = require(paths.configs.middlewares);
-            this.configs.controllers = require(paths.configs.controllers);
-            this.configs.sql.bindings = require(paths.configs.sql.bindings);
-            this.configs.sql.loose = require(paths.configs.sql.loose);
-            this.configs.sql.handlers = require(paths.configs.sql.handlers);
+            this.configs.routes = require(this.root + "/" + this.paths.configs.routes);
+            this.configs.middlewares = require(this.root + "/" + this.paths.configs.middlewares);
+            this.configs.controllers = require(this.root + "/" + this.paths.configs.controllers);
+            this.configs.sql.bindings = require(this.root + "/" + this.paths.configs.sql.bindings);
+            this.configs.sql.loose = require(this.root + "/" + this.paths.configs.sql.loose);
+            this.configs.sql.handlers = require(this.root + "/" + this.paths.configs.sql.handlers);
 
-            
+            readControllerConfig(this.controllers, this.configs.controllers);
 
             resolve();
         })
     },
 };
+
+async function checkStructure() {
+    const dir = (path) => {
+        if (!fs.existsSync(path)){
+            fs.mkdirSync(path);
+        }
+    }
+    
+    const file = (path, data) => {
+        if(!fs.existsSync(path)){
+            fs.writeFileSync(path, data);
+        }
+    }
+
+    const templates = {
+        routes: `{}`,
+        middlewares:`{}`,
+        controllers:`{}`,
+        sql: {
+            bindings: `{}`,
+            loose: `{}`,
+            handlers: `{}`
+        }
+    }
+
+    if(fs.existsSync("./checked.info"))
+        return true;
+
+    const inquirer = require('inquirer')
+
+    const questions = [{
+        type: 'input',
+        name: 'createStruct',
+        message: "do you want to create the base structure for server-serve? (y/n)",
+    }]
+    
+    await inquirer.prompt(questions).then(answers => {
+        if(answers["createStruct"].toLowerCase() === "y" || answers["createStruct"].toLowerCase() === "yes"){
+            console.log("b");
+        }
+    })
+    console.log("abc");
+    return true;
+}
+
+function readControllerConfig(controllerObj, config) {
+
+}

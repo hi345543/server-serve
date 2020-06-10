@@ -45,9 +45,7 @@ module.exports = {
     },
 
     build: function(options) { 
-        return new Promise((resolve, reject) => {
-            checkStructure();
-
+        return new Promise(async (resolve, reject) => {
             //require express or get it from the options object
             if(options && options.express && options.app){
                 this.express = options.express;
@@ -62,22 +60,31 @@ module.exports = {
                 this.paths = options.paths;
             }
 
-            //require all config files
-            this.configs.routes = require(this.root + "/" + this.paths.configs.routes);
-            this.configs.middlewares = require(this.root + "/" + this.paths.configs.middlewares);
-            this.configs.controllers = require(this.root + "/" + this.paths.configs.controllers);
-            this.configs.sql.bindings = require(this.root + "/" + this.paths.configs.sql.bindings);
-            this.configs.sql.loose = require(this.root + "/" + this.paths.configs.sql.loose);
-            this.configs.sql.handlers = require(this.root + "/" + this.paths.configs.sql.handlers);
+            if(!await checkStructure(this))
+                process.exit();
+
+            loadStructure(this);
 
             readControllerConfig(this.controllers, this.configs.controllers);
 
             resolve();
         })
     },
+
+    
 };
 
-async function checkStructure() {
+function loadStructure(serve){
+    //require all config files
+    serve.configs.routes = require(serve.root + "/" + serve.paths.configs.routes);
+    serve.configs.middlewares = require(serve.root + "/" + serve.paths.configs.middlewares);
+    serve.configs.controllers = require(serve.root + "/" + serve.paths.configs.controllers);
+    serve.configs.sql.bindings = require(serve.root + "/" + serve.paths.configs.sql.bindings);
+    serve.configs.sql.loose = require(serve.root + "/" + serve.paths.configs.sql.loose);
+    serve.configs.sql.handlers = require(serve.root + "/" + serve.paths.configs.sql.handlers);
+}
+
+async function checkStructure(serve) {
     const dir = (path) => {
         if (!fs.existsSync(path)){
             fs.mkdirSync(path);
@@ -85,40 +92,119 @@ async function checkStructure() {
     }
     
     const file = (path, data) => {
-        if(!fs.existsSync(path)){
-            fs.writeFileSync(path, data);
+        let curPath = "";
+        if(fs.existsSync(path)){
+            return;
         }
+        path.split('/').forEach(p => {
+            curPath += "/" + p;
+            while(curPath.startsWith("/"))
+                curPath = curPath.substring(1);
+            
+            if(path === curPath){
+                fs.writeFileSync(path, data);
+            }else{
+                dir(curPath);
+            }
+        });
     }
 
     const templates = {
-        routes: `{}`,
-        middlewares:`{}`,
-        controllers:`{}`,
-        sql: {
-            bindings: `{}`,
-            loose: `{}`,
-            handlers: `{}`
+        example: {
+            routes: `{}`,
+            middlewares:`{}`,
+            controllers:`{}`,
+            sql: {
+                bindings: `{}`,
+                loose: `{}`,
+                handlers: `{}`
+            }
+        },
+        normal: {
+            routes: `{}`,
+            middlewares:`{}`,
+            controllers:`{}`,
+            sql: {
+                bindings: `{}`,
+                loose: `{}`,
+                handlers: `{}`
+            }
         }
     }
 
-    if(fs.existsSync("./checked.info"))
+    const inquirer = require('inquirer');
+
+    let structureIsMissing = false;
+
+    if(!fs.existsSync(serve.paths.configs.routes))
+        structureIsMissing = true;
+
+    if(!fs.existsSync(serve.paths.configs.controllers))
+        structureIsMissing = true;
+
+    if(!fs.existsSync(serve.paths.configs.middlewares))
+        structureIsMissing = true;
+
+    if(!fs.existsSync(serve.paths.configs.sql.bindings))
+        structureIsMissing = true;
+
+    if(!fs.existsSync(serve.paths.configs.sql.loose))
+        structureIsMissing = true;
+
+    if(!fs.existsSync(serve.paths.configs.sql.handlers))
+        structureIsMissing = true;
+
+    if(!structureIsMissing){
         return true;
+    }
 
-    const inquirer = require('inquirer')
-
-    const questions = [{
+    let questions = [{
         type: 'input',
         name: 'createStruct',
         message: "do you want to create the base structure for server-serve? (y/n)",
-    }]
-    
-    await inquirer.prompt(questions).then(answers => {
+    }];
+
+    let createStructure = false;
+    let createTestFiles = false;
+
+    await inquirer.prompt(questions).then(async answers => {
         if(answers["createStruct"].toLowerCase() === "y" || answers["createStruct"].toLowerCase() === "yes"){
-            console.log("b");
+            createStructure = true;
+
+            questions = [{
+                type: 'input',
+                name: 'createWithEverything',
+                message: "do you want to create the base structure with example files? (y/n)",
+            }];
+
+            await inquirer.prompt(questions, answers => {
+                if(answers['createWithEverything'].toLowerCase() === "y" || answers['createWithEverything'].toLowerCase() === "yes"){
+                    createTestFiles = true;
+                }
+            });
         }
-    })
-    console.log("abc");
-    return true;
+    });
+
+    if(createStructure){
+        if(createTestFiles){
+            file(serve.root + "/" + serve.paths.configs.routes, templates.example.routes);
+            file(serve.root + "/" + serve.paths.configs.controllers, templates.example.controllers);
+            file(serve.root + "/" + serve.paths.configs.middlewares, templates.example.middlewares);
+            file(serve.root + "/" + serve.paths.configs.sql.bindings, templates.example.sql.bindings);
+            file(serve.root + "/" + serve.paths.configs.sql.loose, templates.example.sql.loose);
+            file(serve.root + "/" + serve.paths.configs.sql.handlers, templates.example.sql.handlers);
+        }else{
+            file(serve.root + "/" + serve.paths.configs.routes, templates.normal.routes);
+            file(serve.root + "/" + serve.paths.configs.controllers, templates.normal.controllers);
+            file(serve.root + "/" + serve.paths.configs.middlewares, templates.normal.middlewares);
+            file(serve.root + "/" + serve.paths.configs.sql.bindings, templates.normal.sql.bindings);
+            file(serve.root + "/" + serve.paths.configs.sql.loose, templates.normal.sql.loose);
+            file(serve.root + "/" + serve.paths.configs.sql.handlers, templates.normal.sql.handlers);
+        }
+        return true;
+    }else{
+        return false;
+    }
 }
 
 function readControllerConfig(controllerObj, config) {

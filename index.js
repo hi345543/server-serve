@@ -121,25 +121,53 @@ async function checkStructure(serve) {
 
     const templates = {
         example: {
-            routes: `{}`,
-            middlewares:`{}`,
-            controllers:`{}`,
+            routes: `{
+                "other-configs": []
+            }`,
+            middlewares:`{
+                "other-configs": []
+            }`,
+            controllers:`{
+                "other-configs": []
+            }`,
             sql: {
-                bindings: `{}`,
-                loose: `{}`,
-                handlers: `{}`,
-                bases: `{}`
+                bindings: `{
+                    "other-configs": []
+                }`,
+                loose: `{
+                    "other-configs": []
+                }`,
+                handlers: `{
+                    "other-configs": []
+                }`,
+                bases: `{
+                    "other-configs": []
+                }`
             }
         },
         normal: {
-            routes: `{}`,
-            middlewares:`{}`,
-            controllers:`{}`,
+            routes: `{
+                "other-configs": []
+            }`,
+            middlewares:`{
+                "other-configs": []
+            }`,
+            controllers:`{
+                "other-configs": []
+            }`,
             sql: {
-                bindings: `{}`,
-                loose: `{}`,
-                handlers: `{}`,
-                bases: `{}`
+                bindings: `{
+                    "other-configs": []
+                }`,
+                loose: `{
+                    "other-configs": []
+                }`,
+                handlers: `{
+                    "other-configs": []
+                }`,
+                bases: `{
+                    "other-configs": []
+                }`
             }
         }
     }

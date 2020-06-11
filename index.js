@@ -14,7 +14,8 @@ module.exports = {
             sql: {
                 bindings: "src/sql/bindings/config.json",
                 loose: "src/sql/loose/config.json",
-                handlers: "src/sql/handlers/config.json"
+                handlers: "src/sql/handlers/config.json",
+                bases: "src/sql/bases/config.json"
             }
         }
     },
@@ -31,7 +32,8 @@ module.exports = {
         sql: {
             bindings: {},
             loose: {},
-            handlers: {}
+            handlers: {},
+            bases: {}
         }
     },
 
@@ -41,7 +43,8 @@ module.exports = {
     sql: {
         bindings: {},
         loose: {},
-        handlers: {}
+        handlers: {},
+        bases: {},
     },
 
     build: function(options) { 
@@ -65,7 +68,13 @@ module.exports = {
 
             loadStructure(this);
 
-            readControllerConfig(this.controllers, this.configs.controllers);
+            importControllerAlikeConfig(this.controllers, this.configs.controllers, this.root + "/" + this.paths.configs.controllers, "controller");
+            console.log("---------------------------------");
+
+            importControllerAlikeConfig(this.middlewares, this.configs.middlewares, this.root + "/" + this.paths.configs.middlewares, "middleware");
+            console.log("---------------------------------");
+
+            importSql(this.sql, this.configs.sql, this.root, this.paths.configs.sql);
 
             resolve();
         })
@@ -82,6 +91,7 @@ function loadStructure(serve){
     serve.configs.sql.bindings = require(serve.root + "/" + serve.paths.configs.sql.bindings);
     serve.configs.sql.loose = require(serve.root + "/" + serve.paths.configs.sql.loose);
     serve.configs.sql.handlers = require(serve.root + "/" + serve.paths.configs.sql.handlers);
+    serve.configs.sql.bases = require(serve.root + "/" + serve.paths.configs.sql.bases);
 }
 
 async function checkStructure(serve) {
@@ -117,7 +127,8 @@ async function checkStructure(serve) {
             sql: {
                 bindings: `{}`,
                 loose: `{}`,
-                handlers: `{}`
+                handlers: `{}`,
+                bases: `{}`
             }
         },
         normal: {
@@ -127,41 +138,45 @@ async function checkStructure(serve) {
             sql: {
                 bindings: `{}`,
                 loose: `{}`,
-                handlers: `{}`
+                handlers: `{}`,
+                bases: `{}`
             }
         }
     }
 
     const inquirer = require('inquirer');
 
-    let structureIsMissing = false;
+    let structureIsMissing = 0;
 
     if(!fs.existsSync(serve.paths.configs.routes))
-        structureIsMissing = true;
+        structureIsMissing++;
 
     if(!fs.existsSync(serve.paths.configs.controllers))
-        structureIsMissing = true;
+        structureIsMissing++;
 
     if(!fs.existsSync(serve.paths.configs.middlewares))
-        structureIsMissing = true;
+        structureIsMissing++;
 
     if(!fs.existsSync(serve.paths.configs.sql.bindings))
-        structureIsMissing = true;
+        structureIsMissing++;
 
     if(!fs.existsSync(serve.paths.configs.sql.loose))
-        structureIsMissing = true;
+        structureIsMissing++;
 
     if(!fs.existsSync(serve.paths.configs.sql.handlers))
-        structureIsMissing = true;
+        structureIsMissing++;
 
-    if(!structureIsMissing){
+    if(!fs.existsSync(serve.paths.configs.sql.bases))
+        structureIsMissing++;
+
+    if(structureIsMissing === 0){
         return true;
     }
 
     let questions = [{
         type: 'input',
         name: 'createStruct',
-        message: "do you want to create the base structure for server-serve? (y/n)",
+        message: structureIsMissing === 7 ? "do you want to create the base structure for server-serve? (y/n)" : "do you want to fix the base structure for server-serve? (y/n)",
     }];
 
     let createStructure = false;
@@ -174,7 +189,7 @@ async function checkStructure(serve) {
             questions = [{
                 type: 'input',
                 name: 'createWithEverything',
-                message: "do you want to create the base structure with example files? (y/n)",
+                message: structureIsMissing === 7 ? "do you want to create the base structure with example files? (y/n)" : "do you want to fix the base structure with example files? (y/n)",
             }];
 
             await inquirer.prompt(questions, answers => {
@@ -193,6 +208,7 @@ async function checkStructure(serve) {
             file(serve.root + "/" + serve.paths.configs.sql.bindings, templates.example.sql.bindings);
             file(serve.root + "/" + serve.paths.configs.sql.loose, templates.example.sql.loose);
             file(serve.root + "/" + serve.paths.configs.sql.handlers, templates.example.sql.handlers);
+            file(serve.root + "/" + serve.paths.configs.sql.bases, templates.example.sql.bases);
         }else{
             file(serve.root + "/" + serve.paths.configs.routes, templates.normal.routes);
             file(serve.root + "/" + serve.paths.configs.controllers, templates.normal.controllers);
@@ -200,6 +216,7 @@ async function checkStructure(serve) {
             file(serve.root + "/" + serve.paths.configs.sql.bindings, templates.normal.sql.bindings);
             file(serve.root + "/" + serve.paths.configs.sql.loose, templates.normal.sql.loose);
             file(serve.root + "/" + serve.paths.configs.sql.handlers, templates.normal.sql.handlers);
+            file(serve.root + "/" + serve.paths.configs.sql.bases, templates.normal.sql.bases);
         }
         return true;
     }else{
@@ -207,6 +224,101 @@ async function checkStructure(serve) {
     }
 }
 
-function readControllerConfig(controllerObj, config) {
+function importControllerAlikeConfig(controllerObj, config, filePath, type = ""){
+    const getPath = (p, ext) => {
+        const path = filePath.substring(0, filePath.lastIndexOf("/") + 1);
+        if(p.startsWith('./')){
+            p = path + p.substring(2);
+        }
+        if(ext && !p.endsWith(ext)){
+            p += ext;
+        }
+        return p.replace(/\\/g, "/");
+    }
+    for(const conf in config){
+        if(conf === "other-configs"){
+            if(Array.isArray(config[conf])){
+                config[conf].forEach(x => {
+                    const path = getPath(x, ".json");
+                    if(fs.existsSync(path)){
+                        importControllerAlikeConfig(controllerObj, require(path), path, type);
+                    }else{
+                        error("config-file: " + path + " does not exist (file: " + filePath + ")");
+                    }
+                });
+            }else{
+                error("the property 'other-configs' has to be an array (file: " + filePath + ")");
+            }
+        }else{
+            const path = getPath(config[conf], ".js");
+            if(fs.existsSync(path)){
+                controllerObj[conf] = require(path);
+                log("imported " + type + ": " + conf + " (file: " + path + ")");
+            }else{
+                error(type + "-file: " + path + " does not exist (file: " + filePath + ")");
+            }
+        }
 
+    }
+}
+
+function importRoutes(){
+
+}
+
+function importSql(sqlObj, config, root, paths) {
+    const getPath = (p, root, ext) => {
+        const path = root.substring(0, root.lastIndexOf("/") + 1);
+        if(p.startsWith('./')){
+            p = path + p.substring(2);
+        }
+        if(ext && !p.endsWith(ext)){
+            p += ext;
+        }
+        return p.replace(/\\/g, "/");
+    }
+    
+    const bindings = () => {
+        
+    };
+    
+    const loose = () => {
+        
+    };
+    
+    const handlers = () => {
+        
+    };
+    
+    const bases = (path, thisConfig) => {
+        for(const conf in thisConfig){
+            if(conf === "other-configs"){
+                if(Array.isArray(thisConfig[conf])){
+                    thisConfig[conf].forEach(x => {
+                        const p = getPath(x, path, ".json");
+                        if(fs.existsSync(p)){
+                            bases(p, require(p));
+                        }else{
+                            error("config-file: " + p + " does not exist (file: " + path + ")");
+                        }
+                    });
+                }else{
+                    error("the property 'other-configs' has to be an array (file: " + path + ")");
+                }
+            }else{
+                sqlObj.bases[conf] = thisConfig[conf];
+                log("imported sql-base: " + conf + " (file: " + path + ")");
+            }
+        }
+    };
+
+    bases(root + "/" + paths.bases, config.bases);
+}
+
+function log(message){
+    console.log("[LOG] " + message);
+}
+
+function error(message){
+    console.log("[ERR] " + message);
 }

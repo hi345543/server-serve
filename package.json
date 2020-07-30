@@ -4,7 +4,9 @@
   "description": "to structurize your backend",
   "main": "index.js",
   "scripts": {
-    "test": "nodemon test.js"
+    "start": "ts-node index.ts",
+    "test": "ts-node-dev --respawn test.ts",
+    "build": "tsc"
   },
   "repository": {
     "type": "git",
@@ -21,11 +23,16 @@
   },
   "homepage": "https://github.com/hi345543/server-serve#readme",
   "dependencies": {
+    "@types/express": "^4.17.7",
+    "@types/node": "^14.0.26",
     "app-root-path": "^3.0.0",
     "express": "^4.17.1",
     "inquirer": "^7.1.0"
   },
   "devDependencies": {
-    "nodemon": "^2.0.4"
+    "nodemon": "^2.0.4",
+    "ts-node": "^8.10.2",
+    "ts-node-dev": "^1.0.0-pre.56",
+    "typescript": "^3.9.7"
   }
 }

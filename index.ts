@@ -5,6 +5,10 @@ import { ConfigsObject } from "./types/options/options.configs";
 import { existsSync, mkdirSync, writeFileSync } from "fs";
 import { config } from "process";
 
+import { getPath } from "./helper";
+
+import { Middleware } from "./types/config-objects/middleware";
+import { stringify } from "querystring";
 
 export class Server {
     options: Options;
@@ -42,54 +46,58 @@ export class Server {
 
         this.importSql();
         console.log("---------------------------------");
+    }
 
-        this.importRoutes();
+    public build() : void {
+        log("building server...");
+        console.log("---------------------------------");
+        this.buildRoutes();
         console.log("---------------------------------");
     }
 
-    importRoutes = () => {
+    private buildRoutes = () => {
+        
+    }
+
+    private importSql = () => {
 
     }
 
-    importSql = () => {
-
-    }
-
-    importMiddlewares = (config?: any, path?: string) => {
-        const getPath = (p : string, ext : string) => {
-            const newPath = path!.substring(0, path!.lastIndexOf("/") + 1);
-            if(p.startsWith('./')){
-                p = newPath + p.substring(2);
-            }
-            if(ext && !p.endsWith(ext)){
-                p += ext;
-            }
-            return p.replace(/\\/g, "/");
-        }
-
+    private importMiddlewares = (config?: Array<Middleware>, path?: string) => {
         const importThisMiddleware = () => {
-            for(const conf in config){
-                if(conf === "other-configs"){
-                    if(config[conf]){
-                        config[conf].forEach((x : any) => {
-                            const newPath = getPath(x, ".json");
+            for(const confTemp of config!){
+                const conf = new Middleware(confTemp);
+                if(conf.IsLink()){
+                    if(conf.links){
+                        let links : Array<string> = [];
+                        if(typeof(conf.links) === typeof(String)){
+                            links.push(conf.links.toString());
+                        }else if(Array.isArray(conf.links)){
+                            links = conf.links;
+                        }else{
+                            continue;
+                        }
+                        for (const link of links){
+                            const newPath = getPath(link, path!, ".json");
                             if(existsSync(newPath)){
                                 this.importMiddlewares(require(newPath), newPath);
                             }else{
                                 error("config-file: " + newPath + " does not exist (file: " + path ? path! : this.options.paths.configs.middlewares + ")");
                             }
-                        });
+                        }
                     }else{
                         error("the property 'other-configs' has to be an array (file: " + path ? path! : this.options.paths.configs.middlewares + ")");
                     }
-                }else{
-                    const newPath = getPath(config[conf], ".js");
+                }else if(conf.IsMiddleware()){
+                    const newPath : string = getPath(conf.middleware!, path!, ".js");
                     if(existsSync(newPath)){
-                        this.serverObjects.middlewares[conf] = require(newPath);
-                        log("imported middleware: " + conf + " (file: " + path! + ")");
+                        this.serverObjects.middlewares[conf.name!] = require(newPath);
+                        log("imported middleware: " + conf.name + " (file: " + path! + ")");
                     }else{
                         error("middleware-file: " + newPath + " does not exist (file: " + path ? path! : this.options.paths.configs.middlewares + ")");
                     }
+                }else{
+                    error("An object inside file: " + path + " is neither a middleware nor a link to other configs");
                 }
             }
         }
@@ -113,24 +121,13 @@ export class Server {
     }
 
 
-    importControllers(config?: any, path?: string) : void {
-        const getPath = (p : string, ext : string) => {
-            const newPath = path!.substring(0, path!.lastIndexOf("/") + 1);
-            if(p.startsWith('./')){
-                p = newPath + p.substring(2);
-            }
-            if(ext && !p.endsWith(ext)){
-                p += ext;
-            }
-            return p.replace(/\\/g, "/");
-        }
-
+    private importControllers(config?: any, path?: string) : void {
         const importThisController = () => {
             for(const conf in config){
                 if(conf === "other-configs"){
                     if(config[conf]){
                         config[conf].forEach((x : any) => {
-                            const newPath = getPath(x, ".json");
+                            const newPath = getPath(x, path!, ".json");
                             if(existsSync(newPath)){
                                 this.importControllers(require(newPath), newPath);
                             }else{
@@ -141,7 +138,7 @@ export class Server {
                         error("the property 'other-configs' has to be an array (file: " + path ? path! : this.options.paths.configs.controllers + ")");
                     }
                 }else{
-                    const newPath = getPath(config[conf], ".js");
+                    const newPath = getPath(config[conf], path!, ".js");
                     if(existsSync(newPath)){
                         this.serverObjects.controllers[conf] = require(newPath);
                         log("imported controller: " + conf + " (file: " + path! + ")");
@@ -170,7 +167,7 @@ export class Server {
         }
     }
 
-    loadStructure = () => {
+    private loadStructure = () => {
         //require all config files
         this.options.configs.routes = require(this.options.paths.configs.routes);
         this.options.configs.middlewares = require(this.options.paths.configs.middlewares);
@@ -182,7 +179,7 @@ export class Server {
         log("first layer of structure has been loaded!");
     }
 
-    checkFileStructure = async () => {
+    private checkFileStructure = async () => {
         const dir = (path : any) => {
             if (!existsSync(path)){
                 mkdirSync(path);
@@ -340,63 +337,6 @@ export class Server {
             return false;
         }
     }
-}
-
-function importControllerAlikeConfig(controllerObj : any, config : any, filePath : any, type = ""){
-    
-}
-
-function importRoutes(configRoutes : any, routePaths : any){
-
-}
-
-function importSql(sqlObj : any, config : any, root : any, paths : any) {
-    const getPath = (p : any, root : any, ext : any) => {
-        const path = root.substring(0, root.lastIndexOf("/") + 1);
-        if(p.startsWith('./')){
-            p = path + p.substring(2);
-        }
-        if(ext && !p.endsWith(ext)){
-            p += ext;
-        }
-        return p.replace(/\\/g, "/");
-    }
-    
-    const bindings = () => {
-        
-    };
-    
-    const loose = () => {
-        
-    };
-    
-    const handlers = () => {
-        
-    };
-    
-    const bases = (path : string, thisConfig : any) => {
-        for(const conf in thisConfig){
-            if(conf === "other-configs"){
-                if(Array.isArray(thisConfig[conf])){
-                    thisConfig[conf].forEach((x : any) => {
-                        const p = getPath(x, path, ".json");
-                        if(existsSync(p)){
-                            bases(p, require(p));
-                        }else{
-                            error("config-file: " + p + " does not exist (file: " + path + ")");
-                        }
-                    });
-                }else{
-                    error("the property 'other-configs' has to be an array (file: " + path + ")");
-                }
-            }else{
-                sqlObj.bases[conf] = thisConfig[conf];
-                log("imported sql-base: " + conf + " (file: " + path + ")");
-            }
-        }
-    };
-
-    bases(root + "/" + paths.bases, config.bases);
 }
 
 function log(message : string){

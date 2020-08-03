@@ -4,9 +4,9 @@
   "description": "to structurize your backend",
   "main": "index.js",
   "scripts": {
-    "start": "ts-node index.ts",
-    "test": "ts-node-dev --respawn test.ts",
-    "build": "tsc"
+    "dev": "ts-node-dev --respawn dev.ts",
+    "build": "tsc test.ts index.ts dev.ts",
+    "test": "node test.js"
   },
   "repository": {
     "type": "git",
